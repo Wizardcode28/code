@@ -99,8 +99,8 @@ if __name__ == "__main__":
 """
 ================================================================================
 LAB EXPLANATION:
-Lab 8 covers Multiple Access Protocols at the MAC sublayer, focusing on Carrier
-Sense Multiple Access (CSMA) variants and Collision Detection (CSMA/CD).
+Lab 8 covers Multiple Access Protocols at the MAC (Medium Access Control) sublayer,
+focusing on Carrier Sense Multiple Access (CSMA) variants and Collision Detection (CSMA/CD).
 
 1. Carrier Sense Principle ("Listen Before Talk"):
    - Stations listen to the physical medium (carrier) before transmitting.
@@ -122,10 +122,45 @@ Sense Multiple Access (CSMA) variants and Collision Detection (CSMA/CD).
    - If signal voltage doubles or distortion is detected, a collision occurred. Station immediately
      aborts transmission, sends a Jam signal, and executes Exponential Backoff algorithm.
 
-CODE EXPLANATION:
-- 'simulate_csma()': Simulates discrete time slots where stations randomly generate frames.
-  Evaluates contending stations based on the chosen persistence rule, tracking Success, Collision, and Idle.
-- 'comparative_analysis()': Runs an extended 100-slot comparative benchmark displaying a formatted
-  performance comparison table of throughput and collision rates across persistence types.
+CODE EXPLANATION (DETAILED STEP-BY-STEP):
+1. Function 'simulate_csma(protocol, stations, slots, p, seed)':
+   - Takes 5 parameters:
+     * 'protocol': Which MAC strategy to execute ('1-persistent', 'non-persistent', 'p-persistent', 'csma/cd').
+     * 'stations': Total competing hosts attached to the shared physical bus (default 5).
+     * 'slots': Total discrete time intervals modeled in the simulation (default 10).
+     * 'p': Transmission probability parameter for p-persistent mode (default 0.5).
+     * 'seed': Deterministic random seed ensuring repeatable results across runs.
+   - Counters ('success', 'collision', 'idle') are initialized to 0 to track channel states.
+   - Main Loop ('for slot in range(slots)'):
+     * Simulates discrete time increments. For every slot, an empty list 'contenders' is reset.
+     * Inner Station Contention Loop ('for s in range(stations)'):
+       - Step A (Packet Arrival): 'random.random() < 0.40' models an independent 40% probability
+         that station 's' has generated an outbound packet to send. Stations without packets skip.
+       - Step B (Medium Sensing & Strategy Filter):
+         * '1-persistent' & 'csma/cd': Appends station 's' to 'contenders' unconditionally (prob = 1.0).
+         * 'non-persistent': 'random.random() < 0.50' models that a waiting station backs off with
+           50% probability instead of jumping onto the wire simultaneously.
+         * 'p-persistent': 'random.random() < p' checks a random draw against threshold 'p'.
+           If true, station transmits; if false, it defers to the subsequent slot.
+     * Slot Outcome Arbitration:
+       - 'len(contenders) == 0': Channel is silent. Increments 'idle' counter.
+       - 'len(contenders) == 1': Perfect transmission. Exactly one station transmitted cleanly.
+         Increments 'success' counter.
+       - 'len(contenders) > 1': Mutual interference / collision. Increments 'collision' counter.
+         In 'csma/cd', the code additionally displays collision detection and abortion of transmission.
+   - Efficiency Calculation:
+     * 'throughput = (success / slots) * 100' computes the channel efficiency percentage.
+
+2. Function 'comparative_analysis(stations, slots, p, seed)':
+   - Runs a Monte Carlo benchmark over 100 slots comparing 'non-persistent', '1-persistent', and 'p-persistent'.
+   - Resets 'random.seed(seed)' before each protocol run so all three strategies experience the exact
+     same random packet arrival patterns.
+   - Outputs a formatted comparative table demonstrating that Non-Persistent minimizes collisions
+     at the expense of idle time, 1-Persistent maximizes collisions under load, and P-Persistent
+     balances both.
+
+3. '__main__' Block:
+   - Takes interactive user inputs for stations, slots, and probability 'p' (with Enter defaults),
+     executes step-by-step traces for all four protocols, and prints the 100-slot comparative table.
 ================================================================================
 """

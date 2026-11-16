@@ -130,8 +130,27 @@ Carrier Sense Multiple Access (CSMA) variants and Collision Detection (CSMA/CD).
    - P-Persistent: If channel is idle, transmits with probability p, defers with (1-p).
    - CSMA/CD: Listens while transmitting, aborts immediately on collision, broadcasts Jam signal.
 
-CODE EXPLANATION:
-- 'simulate_csma()': Simulates discrete time slots tracking contention and collision events.
-- 'comparative_analysis()': Runs an automated 100-slot comparative benchmark across protocols.
+CODE EXPLANATION (DETAILED STEP-BY-STEP):
+1. Function 'simulate_csma(protocol, stations, slots, p)':
+   - Parameters: 'protocol' (string identifying strategy), 'stations' (competing nodes),
+     'slots' (discrete time steps), and 'p' (probability for p-persistent transmission).
+   - Random Number Generator: 'srand(42)' seeds repeatable pseudo-random outcomes.
+   - Slot Loop ('for (int slot = 0; slot < slots; slot++)'):
+     * Clears vector 'contenders' at each slot step.
+     * Iterates over stations: '((rand() % 100) < 40)' simulates a 40% independent packet arrival rate.
+     * Filters contending stations using the active persistence rule:
+       - 1-Persistent / CSMA/CD: Pushes station directly into 'contenders' with probability 1.0.
+       - Non-Persistent: '((rand() % 100) < 50)' introduces a 50% random backoff deferral.
+       - P-Persistent: Compares against threshold 'p * 100' to decide immediate send vs. slot deferral.
+     * Evaluates slot contention:
+       - 'contenders.empty()': Channel idle. Increments 'idle'.
+       - 'contenders.size() == 1': Successful single transmission. Increments 'success'.
+       - 'contenders.size() > 1': Collision occurred. Increments 'collision'. In CSMA/CD, triggers collision abort log.
+   - Computes throughput percentage: '(success / slots) * 100.0'.
+
+2. Function 'comparative_analysis(stations, slots, p)':
+   - Runs a Monte Carlo benchmark over 100 slots for Non-Persistent, 1-Persistent, and P-Persistent.
+   - Resets 'srand(11)' before testing each protocol so every strategy faces the exact same traffic bursts.
+   - Prints a formatted comparison table using 'std::setw' showing Success, Collision, Idle, and Efficiency.
 ================================================================================
 */
