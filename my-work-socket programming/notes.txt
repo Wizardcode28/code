@@ -11,22 +11,7 @@ program reaches out.
 - Client opens a socket and dials the server's address to start a link.
 
 IP Address points to connect computer on network.
-Port no points to correct app running on that computer.
-
-2 types of sockets
-1) TCP Sockets (slow,safe,connected)
-2) UDP Sockets (fast,loose,independent)
-
-| Function  | Purpose          |
-| --------- | ---------------- |
-| socket()  | Create socket    |
-| bind()    | Attach IP + Port |
-| listen()  | Wait for client  |
-| accept()  | Accept client    |
-| connect() | Client connects  |
-| send()    | Send data        |
-| recv()    | Receive data     |
-| close()   | Close socket     |
+Port no. points to correct app running on that computer.
 
 Communication flow
 
@@ -46,13 +31,10 @@ Send message
 Receive Reply
 Close
 
-| TCP                     | UDP                         |
-| ----------------------- | --------------------------- |
-| SOCK_STREAM             | SOCK_DGRAM                  |
-| Reliable                | Not reliable                |
-| Connection oriented     | Connectionless              |
-| Uses connect()          | Usually no connect() needed |
-| Uses listen(), accept() | Doesn't use them            |
+
+2 types of sockets
+1) TCP Sockets (slow,safe,connected)
+2) UDP Sockets (fast,loose,independent)
 
 1) TCP
 Client connects()
@@ -65,6 +47,28 @@ Client
 sendto() network
 Server
 recvfrom()
+
+for TCP
+| Function  | Purpose          |
+| --------- | ---------------- |
+| socket()  | Create socket    |
+| bind()    | Attach IP + Port |
+| listen()  | Wait for client  |
+| accept()  | Accept client    |
+| connect() | Client connects  |
+| send()    | Send data        |
+| recv()    | Receive data     |
+| close()   | Close socket     |
+
+
+| TCP                     | UDP                         |
+| ----------------------- | --------------------------- |
+| SOCK_STREAM             | SOCK_DGRAM                  |
+| Reliable                | Not reliable                |
+| Connection oriented     | Connectionless              |
+| Uses connect()          | Usually no connect() needed |
+| Uses listen(), accept() | Doesn't use them            |
+
 
             Server Socket
                   |
@@ -157,10 +161,3 @@ ping 192.168.1.10 (actual IP of PC1)
 
 If you get: Request timed out.
 don't immediately assume your Python code is wrong. Windows Firewall/network isolation can block ping or connections.
-
-
-4. Server program
-
-
-Lab-5
-
