@@ -36,14 +36,24 @@ def parity_vrc_demo(data):
         print(f"  --> Inverting 1 bit -> Corrupted Codeword: {corrupted} (Error Detected: {detected})")
 
 # -------------------------------------------------------------
-# 2. LONGITUDINAL REDUNDANCY CHECK (LRC) & CYCLIC REDUNDANCY CHECK (CRC)
+# 2. 2D PARITY (VRC ROW + LRC COLUMN) & CYCLIC REDUNDANCY CHECK (CRC)
 # -------------------------------------------------------------
-def lrc(datawords, mode="even"):
-    result = ""
-    for col in range(len(datawords[0])):
-        col_ones = sum(int(word[col]) for word in datawords)
-        result += str(col_ones % 2) if mode == "even" else str(1 - (col_ones % 2))
-    return result
+def compute_2d_parity(datawords, mode="even"):
+    # Row-wise Parity (VRC for each dataword)
+    rows_with_vrc = []
+    for word in datawords:
+        ones = word.count("1")
+        p = str(ones % 2) if mode == "even" else str(1 - (ones % 2))
+        rows_with_vrc.append(word + p)
+        
+    # Column-wise Parity (LRC block check across all rows including VRC column)
+    lrc_row = ""
+    col_len = len(rows_with_vrc[0])
+    for col in range(col_len):
+        col_ones = sum(int(row[col]) for row in rows_with_vrc)
+        lrc_row += str(col_ones % 2) if mode == "even" else str(1 - (col_ones % 2))
+        
+    return rows_with_vrc, lrc_row
 
 def crc_division(data, generator):
     msg = list(data)
@@ -64,15 +74,16 @@ def crc_check(codeword, generator):
 
 def lrc_crc_demo(data, blocks, generator):
     print("\n" + "=" * 60)
-    print(" 2. LONGITUDINAL REDUNDANCY CHECK (LRC) & CRC")
+    print(" 2. TWO-DIMENSIONAL PARITY (VRC + LRC) & CRC")
     print("=" * 60)
     
-    print("[LRC 2D Parity Matrix]")
-    for b in blocks:
-        print(f"  Block: {b}")
-    lrc_parity = lrc(blocks, "even")
-    print(f"  -----------------")
-    print(f"  LRC Parity Row: {lrc_parity}")
+    rows_vrc, lrc_row = compute_2d_parity(blocks, "even")
+    print("[2D Parity Matrix: Datawords + Row VRC]")
+    for r in rows_vrc:
+        print(f"  Data: {r[:-1]} | Row VRC Parity: {r[-1]}")
+    print("  " + "-" * 32)
+    print(f"  LRC Column Parity: {lrc_row[:-1]} | Corner Parity: {lrc_row[-1]}")
+    print(f"  Full LRC Block Check: {lrc_row}")
 
     print(f"\n[Cyclic Redundancy Check (CRC)]")
     print(f"  Data: {data}, Divisor Generator: {generator}")

@@ -47,21 +47,33 @@ void parity_demo(const string& data) {
 
 void lrc_crc_demo(const string& data, const string& gen) {
     cout << "\n============================================================\n";
-    cout << " 2. LONGITUDINAL REDUNDANCY CHECK (LRC) & CRC\n";
+    cout << " 2. TWO-DIMENSIONAL PARITY (VRC + LRC) & CRC\n";
     cout << "============================================================\n";
 
     vector<string> words = {"1011", "1100", "0110"};
-    cout << "[LRC 2D Parity Matrix]\n";
-    for (const auto& w : words) cout << "  Block: " << w << "\n";
+    vector<string> rows_with_vrc;
+    for (const auto& w : words) {
+        int ones = get_ones(w);
+        char p = (ones % 2 == 0) ? '0' : '1';
+        rows_with_vrc.push_back(w + p);
+    }
+
+    cout << "[2D Parity Matrix: Datawords + Row VRC]\n";
+    for (const auto& r : rows_with_vrc) {
+        cout << "  Data: " << r.substr(0, r.length() - 1) << " | Row VRC Parity: " << r.back() << "\n";
+    }
 
     string lrc_parity = "";
-    for (size_t col = 0; col < words[0].length(); col++) {
+    size_t total_cols = rows_with_vrc[0].length();
+    for (size_t col = 0; col < total_cols; col++) {
         int sum = 0;
-        for (const auto& w : words) sum += (w[col] - '0');
+        for (const auto& r : rows_with_vrc) sum += (r[col] - '0');
         lrc_parity += (sum % 2 == 0) ? '0' : '1';
     }
-    cout << "  -----------------\n";
-    cout << "  LRC Parity Row: " << lrc_parity << "\n";
+    cout << "  --------------------------------\n";
+    cout << "  LRC Column Parity: " << lrc_parity.substr(0, total_cols - 1) 
+         << " | Corner Parity: " << lrc_parity.back() << "\n";
+    cout << "  Full LRC Block Check: " << lrc_parity << "\n";
 
     cout << "\n[Cyclic Redundancy Check (CRC)]\n";
     cout << "  Data: " << data << ", Generator: " << gen << "\n";
