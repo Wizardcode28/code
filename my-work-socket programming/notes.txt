@@ -1,0 +1,166 @@
+Socket- simply an endpoint of communication btw 2 computers.
+- software endpoint that allows 2 programs to pass data back and forth across a network.
+- It combined IP Address & Port no.
+
+Socket programming is process of writing code to create these endpoints, 
+link them & exchange information btw a client and a server.
+It follows a client-servel model where one program waits for call and other
+program reaches out.
+
+- Server opens a socket, binds to a port and listens for requests.
+- Client opens a socket and dials the server's address to start a link.
+
+IP Address points to connect computer on network.
+Port no points to correct app running on that computer.
+
+2 types of sockets
+1) TCP Sockets (slow,safe,connected)
+2) UDP Sockets (fast,loose,independent)
+
+| Function  | Purpose          |
+| --------- | ---------------- |
+| socket()  | Create socket    |
+| bind()    | Attach IP + Port |
+| listen()  | Wait for client  |
+| accept()  | Accept client    |
+| connect() | Client connects  |
+| send()    | Send data        |
+| recv()    | Receive data     |
+| close()   | Close socket     |
+
+Communication flow
+
+1) Server Side
+Create socket
+Bind IP + Port
+listen
+Accept Client
+Receive message
+Send Reply
+Close
+
+2) Client Side
+Create Socket
+Connect Server
+Send message
+Receive Reply
+Close
+
+| TCP                     | UDP                         |
+| ----------------------- | --------------------------- |
+| SOCK_STREAM             | SOCK_DGRAM                  |
+| Reliable                | Not reliable                |
+| Connection oriented     | Connectionless              |
+| Uses connect()          | Usually no connect() needed |
+| Uses listen(), accept() | Doesn't use them            |
+
+1) TCP
+Client connects()
+Server
+listen()
+accept()
+
+2) UDP
+Client
+sendto() network
+Server
+recvfrom()
+
+            Server Socket
+                  |
+             listen()
+                  |
+          accept() creates
+                  |
+          +---------------+
+          |               |
+Client Socket 1    Client Socket 2
+
+server socket only waits for new clients.
+client socket communicates with one connected client
+
+| Method                  | Parameters                              | Purpose                                   |
+| ----------------------- | --------------------------------------- | ----------------------------------------- |
+| `socket(family, type)`  | `AF_INET`, `SOCK_STREAM` / `SOCK_DGRAM` | Create a socket                           |
+| `bind((ip, port))`      | Address tuple                           | Attach socket to an address               |
+| `listen(backlog)`       | Queue size                              | Listen for incoming TCP connections       |
+| `accept()`              | None                                    | Accept a client connection                |
+| `connect((ip, port))`   | Server address tuple                    | Connect to a TCP server                   |
+| `send(data)`            | Bytes                                   | Send data                                 |
+| `recv(bufsize)`         | Buffer size in bytes                    | Receive data                              |
+| `sendto(data, address)` | Bytes, address                          | Send a UDP datagram                       |
+| `recvfrom(bufsize)`     | Buffer size                             | Receive a UDP datagram and sender address |
+| `close()`               | None                                    | Close the socket                          |
+
+TCP = SOCK_STREAM, UDP = SOCK_DGRAM.
+The server must bind() to a known IP and port; the client usually does not, because the OS automatically assigns an ephemeral port.
+connect() takes a single address tuple (IP, port).
+send() transmits bytes, so use .encode() on strings.
+recv(n) returns bytes, so use .decode() to convert them back to a string.
+accept() returns a new socket for communication and the client's address, while the original server socket continues listening for other connections.
+
+Now instead of ending after one message both sides keep talking until someone types "bye"
+
+
+Ques: If i give Server IP 0.0.0.0 then can i give same IP to Client and will this work?
+Explain: 
+On server with bind it works server.bind(("0.0.0.0",5000))
+means listen for connections on all network interfaces of this network.
+
+For example, your server PC might have:
+Wi-Fi:      192.168.1.10
+Ethernet:   192.168.1.20
+localhost:  127.0.0.1
+
+With 0.0.0.0, server listens on all of them at port 5000
+
+On Client don't do this: client.connect(("0.0.0.0",5000))
+Because 0.0.0.0 isn't an actual destination address. It means all local network
+interfaces when used for binding/listening, this is not server address.
+
+Client needs actual IP address of server.
+we can use client.connect(("127.0.0.1", 5000)) (localhost)
+or another IP address
+
+
+Lab-4
+FILE TRANSFER:
+
+PC 1 (Server)                         PC 2 (Client)
+     │                                      │
+     │ ←────── Same Wi-Fi/LAN ────────────→ │
+     │                                      │
+ipconfig                                ipconfig
+     │                                      │
+Get Server IP                            Connect to
+e.g. 192.168.1.10                        192.168.1.10
+     │                                      │
+     │ ←──────── TCP connection ─────────── │
+     │                                      │
+     │ ←──────── File data ──────────────── │
+     │                                      │
+     │                              File received
+
+
+1. Connect both PCs to the same network
+
+
+2. Get the Server PC's IP address
+On PC 1, open Command Prompt: ipconfig
+Something like this: IPv4 Address = 192.168.1.10
+Use the IPv4 address of the server PC, not the default gateway.
+
+
+3. Test the connection first
+Before running Python, from PC 2, execute:
+ping 192.168.1.10 (actual IP of PC1)
+
+If you get: Request timed out.
+don't immediately assume your Python code is wrong. Windows Firewall/network isolation can block ping or connections.
+
+
+4. Server program
+
+
+Lab-5
+

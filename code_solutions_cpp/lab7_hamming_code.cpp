@@ -1,7 +1,7 @@
 /*
 Sample inputs:
 Binary data word: 1011
-Error bit position to corrupt (1-7): 3
+Error bit position to corrupt (1 to codeword length): 3
 */
 
 #include <iostream>
@@ -10,90 +10,169 @@ Error bit position to corrupt (1-7): 3
 
 using namespace std;
 
+int calculate_redundant_bits(int m) {
+    for (int r = 1; r < m + 10; r++) {
+        if ((1 << r) >= m + r + 1) return r;
+    }
+    return 0;
+}
+
+pair<string, int> encode_hamming(const string& data) {
+    int m = data.length();
+    int r = calculate_redundant_bits(m);
+    int total_len = m + r;
+
+    vector<char> code(total_len + 1, '0');
+    int j = 0;
+    for (int pos = 1; pos <= total_len; pos++) {
+        if ((pos & (pos - 1)) != 0) { // Not power of 2
+            code[pos] = data[j++];
+        }
+    }
+
+    for (int i = 0; i < r; i++) {
+        int p_pos = 1 << i;
+        int parity = 0;
+        for (int pos = 1; pos <= total_len; pos++) {
+            if (pos & p_pos) {
+                parity ^= (code[pos] - '0');
+            }
+        }
+        code[p_pos] = static_cast<char>('0' + parity);
+    }
+
+    string res = "";
+    for (int i = 1; i <= total_len; i++) res += code[i];
+    return {res, r};
+}
+
+pair<string, int> decode_hamming(string codeword, int r) {
+    int n = codeword.length();
+    vector<char> code(n + 1, '0');
+    for (int i = 1; i <= n; i++) code[i] = codeword[i - 1];
+
+    int syndrome = 0;
+    for (int i = 0; i < r; i++) {
+        int p_pos = 1 << i;
+        if (p_pos > n) break;
+        int parity = 0;
+        for (int pos = 1; pos <= n; pos++) {
+            if (pos & p_pos) {
+                parity ^= (code[pos] - '0');
+            }
+        }
+        if (parity != 0) syndrome += p_pos;
+    }
+
+    if (syndrome != 0 && syndrome <= n) {
+        cout << "  [Correction] Error detected at Bit Position " << syndrome << "! Inverting bit...\n";
+        code[syndrome] = (code[syndrome] == '0') ? '1' : '0';
+    } else if (syndrome == 0) {
+        cout << "  [Verification] Syndrome is 0 -> No bit errors present.\n";
+    }
+
+    string corrected = "";
+    for (int i = 1; i <= n; i++) corrected += code[i];
+    return {corrected, syndrome};
+}
+
+string extract_data(const string& codeword) {
+    string data = "";
+    for (size_t pos = 1; pos <= codeword.length(); pos++) {
+        if ((pos & (pos - 1)) != 0) {
+            data += codeword[pos - 1];
+        }
+    }
+    return data;
+}
+
+int count_ones(const string& s) {
+    int c = 0;
+    for (char ch : s) if (ch == '1') c++;
+    return c;
+}
+
 int main() {
-    string data = "1011";
-    cout << "Enter 4-bit data word [default 1011]: ";
+    string msg = "1011";
+    cout << "Enter binary data word [default 1011]: ";
     string line;
-    if (getline(cin, line) && !line.empty()) data = line;
+    if (getline(cin, line) && !line.empty()) msg = line;
 
-    vector<int> d(4);
-    for (int i = 0; i < 4; i++) d[i] = data[i] - '0';
+    auto [cw, r] = encode_hamming(msg);
 
-    vector<int> c(8);
-    c[3] = d[0];
-    c[5] = d[1];
-    c[6] = d[2];
-    c[7] = d[3];
+    cout << "\n============================================================\n";
+    cout << " 1. HAMMING CODE SINGLE-BIT ERROR CORRECTION\n";
+    cout << "============================================================\n";
+    cout << "Input Data Word (m=" << msg.length() << "): " << msg << "\n";
+    cout << "Number of Parity Bits Required (r): " << r << "\n";
+    cout << "Encoded Hamming Codeword: " << cw << "\n";
 
-    c[1] = c[3] ^ c[5] ^ c[7];
-    c[2] = c[3] ^ c[6] ^ c[7];
-    c[4] = c[5] ^ c[6] ^ c[7];
-
-    cout << "\n--- Single-Bit Error Correction ---\n";
-    cout << "Original Data: " << data << "\n";
-    cout << "Encoded Hamming Code (7-bit): ";
-    for (int i = 1; i <= 7; i++) cout << c[i];
-    cout << "\n";
-
-    int corrupt_pos = 3;
-    cout << "Enter 1-indexed bit position to corrupt (1-7) [default 3]: ";
+    int err_pos = 3;
+    cout << "Enter 1-indexed bit to corrupt (1-" << cw.length() << ") [default 3]: ";
     if (getline(cin, line) && !line.empty()) {
-        try { corrupt_pos = stoi(line); } catch (...) { corrupt_pos = 3; }
+        try { err_pos = stoi(line); } catch (...) { err_pos = 3; }
     }
 
-    vector<int> recv = c;
-    if (corrupt_pos >= 1 && corrupt_pos <= 7) recv[corrupt_pos] ^= 1;
-
-    cout << "Received Codeword: ";
-    for (int i = 1; i <= 7; i++) cout << recv[i];
-    cout << "\n";
-
-    int s1 = recv[1] ^ recv[3] ^ recv[5] ^ recv[7];
-    int s2 = recv[2] ^ recv[3] ^ recv[6] ^ recv[7];
-    int s4 = recv[4] ^ recv[5] ^ recv[6] ^ recv[7];
-    int syndrome = s1 + (s2 * 2) + (s4 * 4);
-
-    if (syndrome == 0) {
-        cout << "No error detected.\n";
-    } else {
-        cout << "Error detected at bit position: " << syndrome << "\n";
-        recv[syndrome] ^= 1;
-        cout << "Corrected Codeword: ";
-        for (int i = 1; i <= 7; i++) cout << recv[i];
-        cout << "\nRecovered Data: " << recv[3] << recv[5] << recv[6] << recv[7] << "\n";
+    string corrupted = cw;
+    if (err_pos >= 1 && err_pos <= static_cast<int>(cw.length())) {
+        corrupted[err_pos - 1] = (corrupted[err_pos - 1] == '0') ? '1' : '0';
     }
 
-    cout << "\n--- Double-Bit Error Detection (SECDED) ---\n";
-    int overall_p = 0;
-    for (int i = 1; i <= 7; i++) overall_p ^= c[i];
-    cout << "Transmitted 8-bit SECDED: ";
-    for (int i = 1; i <= 7; i++) cout << c[i];
-    cout << overall_p << "\n";
+    cout << "\nTransmitted: " << cw << "\n";
+    cout << "Received (Corrupted at Bit " << err_pos << "): " << corrupted << "\n";
 
-    vector<int> test2 = c;
-    test2.push_back(overall_p); // index 8
-    test2[3] ^= 1;
-    test2[5] ^= 1;
+    auto [fixed, syndrome] = decode_hamming(corrupted, r);
+    cout << "Calculated Syndrome: " << syndrome << " (Points to erroneous bit)\n";
+    cout << "Corrected Codeword:  " << fixed << "\n";
+    cout << "Recovered Data Word: " << extract_data(fixed) << "\n";
 
-    int sum_ones = 0;
-    for (int i = 1; i <= 8; i++) sum_ones += test2[i];
-    bool parity_ok = (sum_ones % 2 == 0);
+    cout << "\n============================================================\n";
+    cout << " 2. SECDED (MULTI-BIT ERROR DETECTION)\n";
+    cout << "============================================================\n";
+    char overall_p = (count_ones(cw) % 2 == 0) ? '0' : '1';
+    string secded_word = cw + overall_p;
+    cout << "Transmitted 8-bit SECDED Word (Hamming + Overall Parity): " << secded_word << "\n";
 
-    int syn2 = (test2[1] ^ test2[3] ^ test2[5] ^ test2[7]) +
-               ((test2[2] ^ test2[3] ^ test2[6] ^ test2[7]) * 2) +
-               ((test2[4] ^ test2[5] ^ test2[6] ^ test2[7]) * 4);
+    // 1-bit error test
+    string sec_1err = secded_word;
+    sec_1err[2] = (sec_1err[2] == '0') ? '1' : '0';
+    auto [_, syn1] = decode_hamming(sec_1err.substr(0, cw.length()), r);
+    bool parity1 = (count_ones(sec_1err) % 2 == 0);
+    cout << "\n[Test 1-Bit Error (" << sec_1err << ")]: "
+         << ((syn1 != 0 && !parity1) ? "Single-Bit Error Corrected!" : "Error") << "\n";
 
-    cout << "Received with 2 errors (bits 3 & 5 flipped): ";
-    for (int i = 1; i <= 8; i++) cout << test2[i];
-    cout << "\n";
-
-    if (syn2 != 0 && parity_ok) {
-        cout << "Result: Double-bit error detected successfully (SECDED)!\n";
-    } else if (syn2 != 0 && !parity_ok) {
-        cout << "Result: Single-bit error detected.\n";
-    } else {
-        cout << "Result: No error.\n";
-    }
+    // 2-bit error test
+    string sec_2err = secded_word;
+    sec_2err[2] = (sec_2err[2] == '0') ? '1' : '0';
+    sec_2err[5] = (sec_2err[5] == '0') ? '1' : '0';
+    auto [__, syn2] = decode_hamming(sec_2err.substr(0, cw.length()), r);
+    bool parity2 = (count_ones(sec_2err) % 2 == 0);
+    cout << "[Test 2-Bit Error (" << sec_2err << ")]: "
+         << ((syn2 != 0 && parity2) ? "DOUBLE-BIT ERROR DETECTED! (Uncorrectable)" : "Error") << "\n";
 
     return 0;
 }
+
+/*
+================================================================================
+LAB EXPLANATION:
+Lab 7 implements Hamming Code forward error correction (FEC) and SECDED.
+
+1. Hamming (7,4) Code Principle:
+   - Formulates parity bit count: 2^r >= m + r + 1.
+   - Parity bits are placed at power-of-two positions (1, 2, 4, 8...).
+   - Data bits fill remaining non-power-of-two positions.
+   - Syndrome decoding isolates the exact bit position of an error by testing parity bit sets.
+
+2. SECDED (Single Error Correction, Double Error Detection):
+   - Adds an 8th overall parity bit.
+   - If Syndrome != 0 and parity is odd -> 1-bit error (Correctable).
+   - If Syndrome != 0 and parity is even -> 2-bit error (Double bit error detected).
+
+CODE EXPLANATION:
+- 'calculate_redundant_bits(m)': Solves 2^r >= m + r + 1.
+- 'encode_hamming()': Places data bits and computes parity bits.
+- 'decode_hamming()': Computes syndrome integer and inverts the erroneous bit.
+- 'main()': Validates 1-bit correction and SECDED 2-bit error detection.
+================================================================================
+*/

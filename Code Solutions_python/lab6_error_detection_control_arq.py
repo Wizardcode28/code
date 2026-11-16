@@ -6,8 +6,11 @@
 # Window size for Go-Back-N / Selective-Repeat: 3
 # Frame index to simulate loss: 2
 
-import random
+import time
 
+# -------------------------------------------------------------
+# 1. PARITY CHECK & VERTICAL REDUNDANCY CHECK (VRC)
+# -------------------------------------------------------------
 def parity_bit(data, mode="even"):
     ones = data.count("1")
     return str(ones % 2) if mode == "even" else str(1 - (ones % 2))
@@ -15,19 +18,31 @@ def parity_bit(data, mode="even"):
 def check_parity(codeword, mode="even"):
     return parity_bit(codeword[:-1], mode) == codeword[-1]
 
-def parity_demo(data):
-    print("\n--- 1. Even and Odd Parity Check (VRC) ---")
+def parity_vrc_demo(data):
+    print("\n" + "=" * 60)
+    print(" 1. PARITY CHECK & VERTICAL REDUNDANCY CHECK (VRC)")
+    print("=" * 60)
+    print(f"Original Data Word: {data} (Number of 1s: {data.count('1')})")
+    
     for mode in ("even", "odd"):
-        code = data + parity_bit(data, mode)
-        print(f"{mode.capitalize()} Parity -> Data: {data} -> Transmitted: {code} -> Valid: {check_parity(code, mode)}")
-        corrupted = code[:-1] + ("1" if code[-1] == "0" else "0")
-        print(f"  After 1-bit Error: {corrupted} -> Valid: {check_parity(corrupted, mode)}")
+        p_bit = parity_bit(data, mode)
+        codeword = data + p_bit
+        valid = check_parity(codeword, mode)
+        print(f"[{mode.upper()} Parity] Bit added: '{p_bit}' -> Transmitted Codeword: {codeword} (Valid: {valid})")
+        
+        # Simulate single-bit error
+        corrupted = codeword[:-1] + ("1" if codeword[-1] == "0" else "0")
+        detected = not check_parity(corrupted, mode)
+        print(f"  --> Inverting 1 bit -> Corrupted Codeword: {corrupted} (Error Detected: {detected})")
 
+# -------------------------------------------------------------
+# 2. LONGITUDINAL REDUNDANCY CHECK (LRC) & CYCLIC REDUNDANCY CHECK (CRC)
+# -------------------------------------------------------------
 def lrc(datawords, mode="even"):
     result = ""
     for col in range(len(datawords[0])):
-        ones = sum(int(word[col]) for word in datawords)
-        result += str(ones % 2) if mode == "even" else str(1 - (ones % 2))
+        col_ones = sum(int(word[col]) for word in datawords)
+        result += str(col_ones % 2) if mode == "even" else str(1 - (col_ones % 2))
     return result
 
 def crc_division(data, generator):
@@ -39,70 +54,125 @@ def crc_division(data, generator):
     return "".join(msg[-(len(generator) - 1):])
 
 def crc_encode(data, generator):
-    rem = crc_division(data + "0" * (len(generator) - 1), generator)
-    return data + rem
+    dividend = data + "0" * (len(generator) - 1)
+    remainder = crc_division(dividend, generator)
+    return data + remainder
 
 def crc_check(codeword, generator):
-    rem = crc_division(codeword, generator)
-    return "1" not in rem
+    remainder = crc_division(codeword, generator)
+    return "1" not in remainder
 
+def lrc_crc_demo(data, blocks, generator):
+    print("\n" + "=" * 60)
+    print(" 2. LONGITUDINAL REDUNDANCY CHECK (LRC) & CRC")
+    print("=" * 60)
+    
+    print("[LRC 2D Parity Matrix]")
+    for b in blocks:
+        print(f"  Block: {b}")
+    lrc_parity = lrc(blocks, "even")
+    print(f"  -----------------")
+    print(f"  LRC Parity Row: {lrc_parity}")
+
+    print(f"\n[Cyclic Redundancy Check (CRC)]")
+    print(f"  Data: {data}, Divisor Generator: {generator}")
+    crc_code = crc_encode(data, generator)
+    print(f"  Appended CRC Remainder: {crc_code[len(data):]}")
+    print(f"  Transmitted Codeword: {crc_code}")
+    print(f"  Receiver Syndrome Check (Uncorrupted): {'PASS (No Error)' if crc_check(crc_code, generator) else 'FAIL'}")
+    
+    corrupted_crc = crc_code[:-1] + ("1" if crc_code[-1] == "0" else "0")
+    print(f"  Receiver Syndrome Check (1-bit Error: {corrupted_crc}): {'PASS' if crc_check(corrupted_crc, generator) else 'FAIL (Error Detected)'}")
+
+# -------------------------------------------------------------
+# 3. STOP-AND-WAIT ARQ SIMULATION
+# -------------------------------------------------------------
 def stop_and_wait_arq(total, loss_frame=1):
-    print("\n--- 3. Stop-and-Wait ARQ ---")
-    lost = False
-    for f in range(total):
-        attempt = 1
-        while True:
-            print(f"Sender sends Frame {f} (Attempt {attempt})")
-            if f == loss_frame and not lost:
-                print(f"  Frame {f} or ACK lost! Timeout occurred, retransmitting...")
-                lost = True
-                attempt += 1
-            else:
-                print(f"  Receiver got Frame {f}, ACK {f} received by Sender")
-                break
+    print("\n" + "=" * 60)
+    print(" 3. STOP-AND-WAIT ARQ (AUTOMATIC REPEAT REQUEST)")
+    print("=" * 60)
+    lost_simulated = False
+    f = 0
+    while f < total:
+        print(f"Sender: Transmitting Frame {f}")
+        time.sleep(0.3)
+        if f == loss_frame and not lost_simulated:
+            print(f"  [Channel Error] Frame {f} corrupted/lost in transit!")
+            print(f"  [Sender Timer] Timeout expired! Retransmitting Frame {f}...")
+            lost_simulated = True
+        else:
+            print(f"  Receiver: Frame {f} verified. Sending ACK {f}")
+            print(f"  Sender: ACK {f} received. Sliding to next frame.")
+            f += 1
+    print(f"--> Stop-and-Wait ARQ completed for {total} frames.")
 
+# -------------------------------------------------------------
+# 4. GO-BACK-N ARQ SIMULATION
+# -------------------------------------------------------------
 def go_back_n_arq(total, window, loss_frame):
-    print(f"\n--- 4. Go-Back-N ARQ (Window = {window}) ---")
+    print("\n" + "=" * 60)
+    print(f" 4. GO-BACK-N ARQ (Sliding Window Size = {window})")
+    print("=" * 60)
     base = 0
     lost = False
     while base < total:
         end = min(base + window, total)
-        print(f"Window [{base} to {end-1}]: Sending frames {list(range(base, end))}")
+        current_batch = list(range(base, end))
+        print(f"\nSender Window [{base} to {end - 1}]: Transmitting frames {current_batch}")
+        time.sleep(0.3)
+        
         ack = base - 1
-        for f in range(base, end):
+        for f in current_batch:
             if f == loss_frame and not lost:
-                print(f"  Frame {f} LOST! Receiver discards all subsequent frames.")
+                print(f"  [Error] Frame {f} was LOST during transmission!")
+                print(f"  Receiver: Discarding frame {f} and all subsequent out-of-order frames!")
                 lost = True
                 break
-            print(f"  Frame {f} received -> ACK {f}")
+            print(f"  Receiver: Frame {f} OK -> Sent ACK {f}")
             ack = f
+            
         if ack >= base:
             base = ack + 1
         else:
-            print(f"  Timeout! Go-Back-N retransmits all frames from Frame {base}")
+            print(f"  [Timeout] Go-Back-N Rule: Retransmitting ALL frames in window starting from Frame {base}!")
+    print(f"--> Go-Back-N ARQ successfully completed for {total} frames.")
 
+# -------------------------------------------------------------
+# 5. SELECTIVE-REPEAT ARQ SIMULATION
+# -------------------------------------------------------------
 def selective_repeat_arq(total, window, loss_frame):
-    print(f"\n--- 5. Selective-Repeat ARQ (Window = {window}) ---")
+    print("\n" + "=" * 60)
+    print(f" 5. SELECTIVE-REPEAT ARQ (Window Size = {window})")
+    print("=" * 60)
     acked = set()
     lost = False
     base = 0
     while base < total:
         end = min(base + window, total)
+        current_batch = [f for f in range(base, end) if f not in acked]
+        print(f"\nSender Window [{base} to {end - 1}]: Sending unacknowledged frames {current_batch}")
+        time.sleep(0.3)
+        
         for f in range(base, end):
             if f in acked:
                 continue
             if f == loss_frame and not lost:
-                print(f"  Frame {f} LOST! Receiver buffers other frames.")
+                print(f"  [Error] Frame {f} LOST!")
                 lost = True
             else:
-                print(f"  Frame {f} received and buffered -> ACK {f}")
+                print(f"  Receiver: Frame {f} received. Stored in out-of-order buffer -> ACK {f} sent.")
                 acked.add(f)
+                
         if base == loss_frame and loss_frame not in acked:
-            print(f"  Timeout! Retransmitting ONLY lost Frame {base}")
-            print(f"  Frame {base} received -> ACK {base}")
+            print(f"  [Timeout] Selective-Repeat Rule: Retransmitting ONLY missing Frame {base}!")
+            time.sleep(0.3)
+            print(f"  Receiver: Frame {base} received -> ACK {base} sent.")
             acked.add(base)
-        while base in acked:
+            
+        while base in acked and base < total:
             base += 1
+            
+    print(f"--> Selective-Repeat ARQ successfully completed for {total} frames.")
 
 if __name__ == "__main__":
     msg = input("Enter binary string for Parity/VRC & CRC [default: 1011001]: ").strip() or "1011001"
@@ -110,13 +180,8 @@ if __name__ == "__main__":
     blocks = [b.strip() for b in blocks_in.split(",")] if blocks_in else ["1011", "1100", "0110"]
     gen = input("Enter CRC divisor polynomial [default: 1101]: ").strip() or "1101"
 
-    parity_demo(msg)
-
-    print("\n--- 2. Longitudinal Redundancy Check (LRC) & CRC ---")
-    print(f"LRC Check Bits for {blocks}: {lrc(blocks, 'even')}")
-    crc_code = crc_encode(msg, gen)
-    print(f"CRC Codeword: {crc_code}")
-    print(f"CRC Verification: {'Valid' if crc_check(crc_code, gen) else 'Error'}")
+    parity_vrc_demo(msg)
+    lrc_crc_demo(msg, blocks, gen)
 
     tot_in = input("\nEnter total frames for ARQ simulations [default: 5]: ").strip()
     total = int(tot_in) if tot_in else 5
@@ -125,6 +190,39 @@ if __name__ == "__main__":
     loss_in = input("Enter frame index to simulate loss [default: 2]: ").strip()
     loss_frame = int(loss_in) if loss_in else 2
 
-    stop_and_wait_arq(total, min(1, total - 1))
+    stop_and_wait_arq(total, min(loss_frame, total - 1))
     go_back_n_arq(total, window, loss_frame)
     selective_repeat_arq(total, window, loss_frame)
+
+"""
+================================================================================
+LAB EXPLANATION:
+Lab 6 implements comprehensive Error Detection and Error Control (ARQ) mechanisms
+operating at the Data Link layer.
+
+1. Error Detection Techniques:
+   - Parity / VRC (Vertical Redundancy Check): Appends a single bit to make total 1s even or odd.
+     Detects single-bit errors; fails for double-bit errors.
+   - LRC (Longitudinal Redundancy Check): Organizes data into blocks and computes parity for each
+     column (2D parity check), catching burst errors across rows.
+   - CRC (Cyclic Redundancy Check): Polynomial division in modulo-2 arithmetic (XOR). The data is
+     multiplied by 2^(n-1) and divided by generator G(x). The remainder is appended. If remainder
+     at receiver is 0, transmission is error-free.
+
+2. Automatic Repeat reQuest (ARQ) Protocols:
+   - Stop-and-Wait ARQ: Sender transmits 1 frame and waits. On timeout/loss, retransmits that single frame.
+   - Go-Back-N (GBN) ARQ: Uses a sliding window of size N. The receiver accepts ONLY in-order frames.
+     If frame 'k' is lost, all subsequent frames (k+1, k+2...) are discarded by the receiver, forcing
+     the sender upon timeout to roll back and retransmit the entire window starting from 'k'.
+   - Selective-Repeat (SR) ARQ: Both sender and receiver maintain sliding windows of size N.
+     The receiver buffers valid out-of-order frames. Upon timeout, the sender retransmits ONLY the
+     specific frame that was lost, saving bandwidth.
+
+CODE EXPLANATION:
+- 'parity_vrc_demo()': Computes even/odd parity bit, constructs codeword, validates parity, and inverts 1 bit.
+- 'lrc_crc_demo()': Computes column-wise parity for LRC and performs modulo-2 division for CRC encoding/checking.
+- 'stop_and_wait_arq()': Simulates single-frame timeout and retransmission on loss.
+- 'go_back_n_arq()': Simulates receiver rejecting out-of-order frames, forcing sender to retransmit the window.
+- 'selective_repeat_arq()': Uses an acknowledgment set 'acked' and receiver buffer to resend only lost frames.
+================================================================================
+"""
